@@ -40,6 +40,12 @@ var atAddress = flag.String(
 	"host:port to serve volume management functions",
 )
 
+var advertiseAddress = flag.String(
+	"advertiseAddr",
+	*atAddress,
+	"host:port to advertise volume management functions",
+)
+
 var adminAddress = flag.String(
 	"adminAddr",
 	"127.0.0.1:7590",
@@ -181,9 +187,9 @@ func main() {
 	)
 
 	if *transport == "tcp" {
-		nfsDriverServer = createNfsDriverServer(logger, client, *atAddress, *driversPath, false)
+		nfsDriverServer = createNfsDriverServer(logger, client, *atAddress, *advertiseAddress, *driversPath, false)
 	} else if *transport == "tcp-json" {
-		nfsDriverServer = createNfsDriverServer(logger, client, *atAddress, *driversPath, true)
+		nfsDriverServer = createNfsDriverServer(logger, client, *atAddress, *advertiseAddress, *driversPath, true)
 	} else {
 		nfsDriverServer = createNfsDriverUnixServer(logger, client, *atAddress)
 	}
@@ -230,8 +236,8 @@ func processRunnerFor(servers grouper.Members) ifrit.Runner {
 	return sigmon.New(grouper.NewOrdered(os.Interrupt, servers))
 }
 
-func createNfsDriverServer(logger lager.Logger, client dockerdriver.Driver, atAddress, driversPath string, jsonSpec bool) ifrit.Runner {
-	advertisedUrl := "http://" + atAddress
+func createNfsDriverServer(logger lager.Logger, client dockerdriver.Driver, atAddress, advertiseAddress, driversPath string, jsonSpec bool) ifrit.Runner {
+	advertisedUrl := "http://" + advertiseAddress
 	logger.Info("writing-spec-file", lager.Data{"location": driversPath, "name": "nfsv3driver", "address": advertisedUrl})
 	if jsonSpec {
 		driverJsonSpec := dockerdriver.DriverSpec{Name: "nfsv3driver", Address: advertisedUrl, UniqueVolumeIds: true}
@@ -244,7 +250,7 @@ func createNfsDriverServer(logger lager.Logger, client dockerdriver.Driver, atAd
 			absClientKeyFile, err := filepath.Abs(*clientKeyFile)
 			exitOnFailure(logger, err)
 			driverJsonSpec.TLSConfig = &dockerdriver.TLSConfig{InsecureSkipVerify: *insecureSkipVerify, CAFile: absCaFile, CertFile: absClientCertFile, KeyFile: absClientKeyFile}
-			driverJsonSpec.Address = "https://" + atAddress
+			driverJsonSpec.Address = "https://" + advertiseAddress
 		}
 
 		jsonBytes, err := json.Marshal(driverJsonSpec)
